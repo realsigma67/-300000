@@ -1,0 +1,190 @@
+import random
+import time
+import json
+import os
+from datetime import datetime
+
+DATA_FILE = "user_profile.json"
+HISTORY_FILE = "history.json"
+
+def load_profile():
+    if os.path.exists(DATA_FILE):
+        with open(DATA_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    return {"name": "NoName", "games_played": 0, "wins": 0, "total_score": 0}
+
+def save_profile(profile):
+    with open(DATA_FILE, "w", encoding="utf-8") as f:
+        json.dump(profile, f, ensure_ascii=False, indent=4)
+
+user_profile = load_profile()
+
+def get_safe_int(prompt, min_val=None, max_val=None):
+    while True:
+        try:
+            val = int(input(prompt))
+            if min_val is not None and val < min_val:
+                print(f"⚠️ Ошибка: число должно быть не меньше {min_val}!")
+                continue
+            if max_val is not None and val > max_val:
+                print(f"⚠️ Ошибка: число должно быть не больше {max_val}!")
+                continue
+            return val
+        except ValueError:
+            print("❌ Глобальная ошибка: Вы должны ввести целое число! 💢")
+
+def calculate_score(start_balance, attempts_used, total_time):
+    score = start_balance * ((0.9) ** (attempts_used - 1))
+    score -= (total_time * 2)
+    if total_time < 10:
+        score *= 2
+        print("🚀 МЕГА-БОНУС! Вы были быстрее 10 секунд! Очки удвоены!")
+    return max(0, round(score, 2))
+
+def log_game_history(secret_number, attempts, duration, score):
+    log_entry = {
+        "player": user_profile["name"],
+        "date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "secret_number": secret_number,
+        "attempts": attempts,
+        "time": f"{duration:.2f}s",
+        "score": score
+    }
+    history = []
+    if os.path.exists(HISTORY_FILE):
+        try:
+            with open(HISTORY_FILE, "r", encoding="utf-8") as f:
+                history = json.load(f)
+        except:
+            history = []
+    history.append(log_entry)
+    try:
+        with open(HISTORY_FILE, "r", encoding="utf-8") as f:
+            history = json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        history = []
+    with open(HISTORY_FILE, "w", encoding="utf-8") as f:
+        json.dump(history, f, indent=4, ensure_ascii=False)
+
+def create_profile():
+    print("\n--- 🔓 НАСТРОЙКА ПРОФИЛЯ ---")
+    name = input("Введите ваше имя: ").strip()
+    print("Ожидайте...😐")
+    time.sleep(1)
+    if name:
+        user_profile["name"] = name
+        save_profile(user_profile)
+        print(f"✅ Профиль обновлен: {user_profile['name']}")
+    else:
+        print("⚠️ Имя не может быть пустым!")
+
+def play_game():
+    print(f"\n🌟 --- ИГРА НАЧИНАЕТСЯ, {user_profile['name'].upper()}! --- 🌟")
+    while True:
+        low = get_safe_int("📍 Минимальное число: ")
+        high = get_safe_int(f"🏁 Максимальное число (больше {low}): ", min_val=low + 1)
+        if low < high: break
+    max_attempts = get_safe_int("🎯 Лимит попыток: ", min_val=1)
+    hints_on = input("💡 Включить подсказки Больше/Меньше? (д/н): ").lower() == 'д'
+    start_balance = get_safe_int("💰 Стартовый капитал очков: ", min_val=100)
+    secret_number = random.randint(low, high)
+    user_profile["games_played"] += 1
+    start_time = time.time()
+    won = False
+    print(f"\n🧩 Число загадано с {low} по {high}. Погнали! ⏳")
+    for i in range(1, max_attempts + 1):
+        print(f"\n--- Попытка {i} из {max_attempts} ---")
+        guess = get_safe_int(f"🤔 Ваш вариант: ", low, high)
+        if guess == secret_number:
+            end_time = time.time()
+            duration = end_time - start_time
+            score = calculate_score(start_balance, i, duration)
+            print(f"🎉 УРА! {user_profile['name']}, вы угадали! Это было число {secret_number}! 👍")
+            print(f"🏆 Очки за раунд: {score} | ⏱️ Время: {duration:.2f} сек.")
+            user_profile["wins"] += 1
+            user_profile["total_score"] += score
+            won = True
+            log_game_history(secret_number, i, dura
+tion, score)
+            break
+        else:
+            if hints_on:
+                print("📈 Больше!" if guess < secret_number else "📉 Меньше!")
+            else:
+                print("❌ Неверно!")
+    if not won:
+        print(f"\n💀 Попытки закончились! Было загадано: {secret_number} 💀")
+    save_profile(user_profile)
+    print("\n--- 🚩 КОНЕЦ ИГРЫ ---")
+
+def show_stats():
+    print(f"\n📊 --- СТАТИСТИКА ({user_profile['name']}) ---")
+    print(f"💯 Игр сыграно: {user_profile['games_played']}")
+    print(f"🥇 Побед: {user_profile['wins']}")
+    print(f"💎 Всего очков: {user_profile['total_score']}")
+    if user_profile['games_played'] > 0:
+        win_rate = (user_profile['wins'] / user_profile['games_played']) * 100
+        print(f"📈 Win Rate: {win_rate:.1f}%")
+
+# --- НОВАЯ ФУНКЦИЯ: О ПРОГРАММЕ ---
+def show_about():
+    print("\n" + "🎬" * 15)
+    print("📜 ИСТОРИЯ СОЗДАНИЯ ПРОЕКТА")
+    print("🎬" * 15)
+    print("")
+    time.sleep(0.5)
+    print("🛠️  Разработка началась с создания простого рандомайзера под названием 'Рандомайзер 3000'")
+    print("    и продвинутой системой прогресса игрока.")
+    time.sleep(0.5)
+    print("💾  Для сохранения достижений пользователя была внедрена система JSON-баз данных,")
+    print("    чтобы ни одна победа не потерялась в истории! 📚")
+    time.sleep(0.5)
+    print("🤖  Код прошел путь от консольных строк до полноценного проекта")
+    print("    «Числовой Квест + Рандомайзер 3000» с кучей функций! ✨")
+    time.sleep(0.5)
+    print("")
+    time.sleep(0.5)
+    print("")
+    time.sleep(0.5)
+    print("🗿   Спойлер: скоро будет добавлено очень много посхалок) 🧐")
+    print("                                     Автор: Мякинников Макар🤙")
+    print("\n[ Нажмите Enter, чтобы вернуться в меню ]")
+    input()
+
+def menu():
+    while True:
+        print(f"\n{'=' * 46}")
+        print(f"   🎰 Числовой Квест + Рандомайзер 3000 🎰")
+        print(f"{'=' * 46}")
+        print(f"👤 Игрок: {user_profile['name']}")
+        print("1. 🖥️ Начать игру 💻")
+        print("2. 🔓 Изменить профиль 📝")
+        print("3. 👁️‍🗨️ Посмотреть статистику 📶")
+        print("4. 🎬 О программе (История создания) 📜")
+        print("5. ⛔ Выход 🚫")
+
+        choice = input("\nВыберите действие (1-5): ")
+
+        if choice == "1":
+            play_game()
+        elif choice == "2":
+            create_profile()
+        elif choice == "3":
+            show_stats()
+        elif choice == "4":
+            show_about()
+        elif choice == "5":
+            print("\n📚 Сохранение данных...")
+            time.sleep(3)
+            print("💾 Профиль сохранен")
+            print("🔌 Выключение программы")
+            time.sleep(1)
+            print("😐 Ожидайте...😐")
+            time.sleep(4)
+            print("👋 До свидания!")
+            break
+        else:
+            print("❌ Ошибка: Выберите пункт от 1 до 5!")
+
+if __name__ == "__main__":
+    menu()
